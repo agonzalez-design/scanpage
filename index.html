@@ -1,0 +1,370 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Order Verification Engine</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            --border-color: #333333;
+            --accent-blue: #0076d6;
+            --success-green: #2e7d32;
+            --warning-orange: #ef6c00;
+            --danger-red: #c62828;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        header {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; color: var(--text-main); }
+        header p { margin: 5px 0 0 0; color: var(--text-muted); font-size: 0.9rem; }
+
+        .workspace {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 0; /* Prevents flex items from breaking scroll overflows */
+        }
+
+        .panel {
+            flex: 1;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .panel-heading {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #333;
+            text-transform: uppercase;
+        }
+
+        /* Invoice Upload Section Styling */
+        .upload-zone {
+            border: 2px dashed #444;
+            border-radius: 6px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background 0.2s;
+        }
+        .upload-zone:hover { background: #252525; border-color: var(--accent-blue); }
+
+        /* Tables layout styling */
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { color: var(--text-muted); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+
+        /* Real-time Status Colors */
+        .status-pending { color: var(--text-muted); font-weight: bold; }
+        .status-picking { color: var(--warning-orange); font-weight: bold; }
+        .status-matched { color: #81c784; font-weight: bold; background-color: rgba(46, 125, 50, 0.2); padding: 4px 8px; border-radius: 4px; }
+        .status-overage { color: #e57373; font-weight: bold; background-color: rgba(198, 40, 40, 0.2); padding: 4px 8px; border-radius: 4px; }
+
+        /* Barcode Scanner Scanner input Styling */
+        .scanner-box {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #444;
+        }
+        .scanner-box label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; font-weight: bold;}
+        .scanner-box input {
+            width: 100%;
+            padding: 12px;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 1.2rem;
+            border-radius: 4px;
+            box-sizing: border-box;
+            letter-spacing: 2px;
+        }
+        .scanner-box input:focus { border-color: var(--accent-blue); outline: none; }
+
+        /* System Logs Display */
+        .live-alerts {
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            display: none;
+            animation: flash 0.3s ease-out;
+        }
+        .alert-success { background-color: rgba(46, 125, 50, 0.3); border: 1px solid var(--success-green); color: #fff; }
+        .alert-warning { background-color: rgba(239, 108, 0, 0.3); border: 1px solid var(--warning-orange); color: #fff; }
+        .alert-danger { background-color: rgba(198, 40, 40, 0.3); border: 1px solid var(--danger-red); color: #fff; }
+
+        @keyframes flash {
+            0% { opacity: 0.5; transform: scale(0.99); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Bottom Control Button Area */
+        .actions-panel {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .btn-submit {
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: not-allowed;
+            background-color: #333;
+            color: #777;
+            transition: all 0.2s;
+        }
+        .btn-submit.ready {
+            background-color: var(--success-green);
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Oracle Cart Builder — Fulfillment Verification Gateway</h1>
+        <p>Step 1: Parse the document structure on the left panel. Step 2: Zap physical barcodes into the right panel listener.</p>
+    </header>
+
+    <div class="workspace">
+        
+        <!-- LEFT SIDE: INVOICE EXTRACTION -->
+        <div class="panel">
+            <div class="panel-heading">
+                <span>1. Invoice Scan Extraction</span>
+                <span class="badge" id="ocr-status">Awaiting File</span>
+            </div>
+            
+            <!-- Clickable Simulated Upload Area -->
+            <div class="upload-zone" id="upload-zone" onclick="simulateInvoiceOCR()">
+                <p style="font-size: 1.5rem; margin: 0 0 10px 0;">📄</p>
+                <strong>Click to Mock Scanned Document Upload</strong>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 5px 0 0 0;">Simulates AI extraction pipeline pulling items & quantities</p>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item Number</th>
+                            <th>Description</th>
+                            <th>Expected Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-table-body">
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px 0;">No active invoice loaded. Click the container box above to upload.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDE: PHYSICAL SCANNER VERIFICATION -->
+        <div class="panel">
+            <div class="panel-heading">
+                <span>2. Physical Product Verification</span>
+                <span class="badge" style="background: var(--accent-blue);">Scanner Listener Active</span>
+            </div>
+
+            <!-- The Barcode Hardware Target Field -->
+            <div class="scanner-box">
+                <label for="barcode-input">AIM LASER SCANNER / ENTER ITEM HERE:</label>
+                <input type="text" id="barcode-input" placeholder="Click here to type or scan..." disabled autocomplete="off">
+            </div>
+
+            <!-- Dynamic Feedback Output Block -->
+            <div class="live-alerts" id="alert-banner"></div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item Code</th>
+                            <th>Scanned / Expected</th>
+                            <th>Matching Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="verification-table-body">
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px 0;">Waiting for invoice layout parsing to finish...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN FOOTER CONTROLS -->
+    <div class="actions-panel">
+        <button class="btn-submit" id="submit-btn" disabled onclick="alert('Order successfully posted to Oracle Cart builder tables!')">Commit Verified Order to Oracle Cart</button>
+    </div>
+
+    <script>
+        // Core Internal State Store
+        let activeInvoiceData = [];
+
+        // Mock Data Array mimicking OCR results from Oracle Document Understanding
+        const mockOcrResult = [
+            { item_number: "1130US", description: "Industrial Anchor Hex Bolts", qty_expected: 3, qty_scanned: 0, status: "PENDING" },
+            { item_number: "9482X", description: "Heavy Duty Galvanized Bracket", qty_expected: 1, qty_scanned: 0, status: "PENDING" },
+Use code with caution.
+{ item_number: "5512B", description: "Steel Thread Lock Washer 10mm", qty_expected: 5, qty_scanned: 0, status: "PENDING" }
+];
+// Pipeline Action 1: Simulate the OCR Upload & Parsing
+function simulateInvoiceOCR() {
+// Fill state with deep copy of our mock JSON data payload
+activeInvoiceData = JSON.parse(JSON.stringify(mockOcrResult));
+// Update Interface Status Elements
+document.getElementById('ocr-status').innerText = "Extracted";
+document.getElementById('ocr-status').style.backgroundColor = "var(--success-green)";
+document.getElementById('upload-zone').style.borderColor = "var(--success-green)";
+document.getElementById('upload-zone').style.pointerEvents = "none";
+document.getElementById('upload-zone').innerHTML = "✅ Invoice Loaded: 3 Distinct Item Records Extracted From System Document.";
+// Activate the physical hardware input listener field
+const barcodeInput = document.getElementById('barcode-input');
+barcodeInput.disabled = false;
+barcodeInput.placeholder = "Ready for physical scans (e.g. Type '1130US' & press Enter)";
+barcodeInput.focus();
+// Render out table structures across both halves of display
+renderTables();
+showAlert("alert-success", "⚙️ OCR Extraction Complete. Ready to check barcodes.");
+}
+// UI Renderer Utility
+function renderTables() {
+const invoiceBody = document.getElementById('invoice-table-body');
+const verificationBody = document.getElementById('verification-table-body');
+invoiceBody.innerHTML = "";
+verificationBody.innerHTML = "";
+activeInvoiceData.forEach(item => {
+// Render Invoice Baseline Rows (Left Pane)
+invoiceBody.innerHTML += `
+${item.item_number}
+${item.description}
+${item.qty_expected}
+`;
+// Calculate dynamic CSS classes for verification states
+let statusClass = "status-pending";
+if(item.status === "MATCHED") statusClass = "status-matched";
+if(item.status === "OVERAGE") statusClass = "status-overage";
+if(item.status === "PICKING") statusClass = "status-picking";
+// Render Live Verification Counter Rows (Right Pane)
+verificationBody.innerHTML += `
+${item.item_number}
+\({item.qty_scanned} / \){item.qty_expected}
+${item.status}
+`;
+});
+checkOrderCompleteness();
+}
+// Pipeline Action 2: Monitor and Evaluate Barcode Input Field
+document.getElementById('barcode-input').addEventListener('keypress', function(e) {
+if (e.key === 'Enter') {
+const inputVal = this.value.trim().toUpperCase(); // Format Input text (e.g. "1130us" -> "1130US")
+this.value = ""; // Instantly wipe field clear ready for subsequent scan snap
+if(!inputVal) return;
+// Execute Search against active memory data arrays
+const matchIndex = activeInvoiceData.findIndex(item => item.item_number === inputVal);
+// CONDITION A: Item scanned doesn't exist anywhere on invoice manifest
+if (matchIndex === -1) {
+showAlert("alert-danger", ❌ MISMATCH DETECTED: Scanned Item "${inputVal}" is not listed on this order invoice!);
+return;
+}
+let targetItem = activeInvoiceData[matchIndex];
+// CONDITION B: Item exists, but they already scanned required count
+if (targetItem.qty_scanned >= targetItem.qty_expected) {
+targetItem.qty_scanned += 1;
+targetItem.status = "OVERAGE";
+showAlert("alert-warning", ⚠️ OVERAGE WARNING: Barcode code "${inputVal}" has exceeded requested quantity thresholds!);
+} else {
+// CONDITION C: Valid match step increment
+targetItem.qty_scanned += 1;
+if (targetItem.qty_scanned === targetItem.qty_expected) {
+targetItem.status = "MATCHED";
+showAlert("alert-success", 🎉 LINE MATCHED: Item ${inputVal} fully picked and verified.);
+} else {
+targetItem.status = "PICKING";
+showAlert("alert-success", ✅ Scanned ${inputVal} (${targetItem.qty_scanned}/${targetItem.qty_expected}));
+}
+}
+renderTables();
+}
+});
+// Global State Helper — Checks if button can unlock
+function checkOrderCompleteness() {
+const allMatched = activeInvoiceData.length > 0 && activeInvoiceData.every(item => item.status === "MATCHED");
+const submitBtn = document.getElementById('submit-btn');
+if (allMatched) {
+submitBtn.removeAttribute('disabled');
+submitBtn.classList.add('ready');
+} else {
+submitBtn.setAttribute('disabled', 'true');
+submitBtn.classList.remove('ready');
+}
+}
+// Display Alerts Output Engine
+function showAlert(type, text) {
+const banner = document.getElementById('alert-banner');
+banner.className = live-alerts ${type};
+banner.innerText = text;
+banner.style.display = "block";
+}
